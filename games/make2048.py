@@ -219,12 +219,18 @@ class Make2048:
         return self.get_observation()
 
     def step(self, action):
-        new_board, reward, moved = self.virtual_move(self.board, action)
+        new_board, score, moved = self.virtual_move(self.board, action)
+        current_max_number = numpy.max(self.board)
+        reward = 0
         if moved:
             self.board = new_board
+            new_max_number = numpy.max(self.board)
+            if current_max_number < new_max_number:
+                reward = new_max_number
         else:  # illegal move
             reward = -1
 
+        reward += score * 0.001
         self.place_new_number()
 
         done = len(self.legal_actions()) == 0 or numpy.max(self.board) > MAX_NUMBER
@@ -240,7 +246,7 @@ class Make2048:
 
     def virtual_move(self, board, action):
         rot_board = numpy.rot90(board, -action).copy()  # for moving always right
-        reward = 0
+        score = 0
         moved = False
         for row in range(BOARD_SIZE):
             line = rot_board[row]
@@ -251,7 +257,7 @@ class Make2048:
                 for r_col in range(col + 1, BOARD_SIZE):
                     if line[col] == line[r_col] and not merged_in_line:
                         line[r_col] += 1
-                        reward += line[r_col]
+                        score += line[r_col]
                         line[col] = 0
                         moved = True
                         merged_in_line = True
@@ -268,7 +274,7 @@ class Make2048:
                         break
                     elif line[r_col] > 0:
                         break
-        return numpy.rot90(rot_board, action), reward, moved
+        return numpy.rot90(rot_board, action), score, moved
 
     def get_observation(self):
         channels = []
