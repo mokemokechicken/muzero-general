@@ -35,7 +35,7 @@ class MuZeroConfig:
         self.selfplay_on_gpu = False
         self.max_moves = 10000  # Maximum number of moves if game is not finished before
         self.num_simulations = 20  # Number of future moves self-simulated
-        self.discount = 0.99  # Chronological discount of the reward
+        self.discount = 0.95  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
 
         # Root prior exploration noise
@@ -50,7 +50,7 @@ class MuZeroConfig:
 
         ### Network
         self.network = "resnet"  # "resnet" / "fullyconnected"
-        self.support_size = 5  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
+        self.support_size = 10  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
 
         # Residual Network
         self.downsample = False  # Downsample observations before representation network, False / "CNN" (lighter) / "resnet" (See paper appendix Network Architecture)
@@ -210,34 +210,65 @@ class Make2048:
 
     def __init__(self):
         self.board = numpy.zeros((BOARD_SIZE, BOARD_SIZE), dtype="int32")
+        self.place_new_number()
 
     def reset(self):
         self.board = numpy.zeros((BOARD_SIZE, BOARD_SIZE), dtype="int32")
+        for _ in range(2):
+            self.place_new_number()
         return self.get_observation()
 
     def step(self, action):
-        new_board, reward = self.virtual_move(self.board, action)
-        if reward > 0:
+        new_board, reward, moved = self.virtual_move(self.board, action)
+        if moved:
             self.board = new_board
         else:  # illegal move
-            pass
+            reward = -1
+
+        self.place_new_number()
 
         done = len(self.legal_actions()) == 0 or numpy.max(self.board) > MAX_NUMBER
         return self.get_observation(), reward, done
 
+    def place_new_number(self):
+        zero_pos_list = list(zip(*numpy.where(self.board == 0)))  # -> [(0, 0), (0, 1), ...]
+        if zero_pos_list:
+            pos = zero_pos_list[numpy.random.choice(range(len(zero_pos_list)))]
+            # https://github.com/gabrielecirulli/2048/blob/master/js/game_manager.js#L71
+            number = 1 if numpy.random.random() < 0.9 else 2
+            self.board[pos] = number
+
     def virtual_move(self, board, action):
         rot_board = numpy.rot90(board, -action).copy()  # for moving always right
         reward = 0
+        moved = False
         for row in range(BOARD_SIZE):
             line = rot_board[row]
-            for col in range(BOARD_SIZE-1, 0, -1):  # 3, 2, 1
-                if line[col] == line[col-1]:
-                    line[col] += 1
-                    reward += line[col]
-                    if col > 1:  # shift
-                        line[1:col] = line[:col-1]
-                    line[0] = 0
-        return numpy.rot90(rot_board, action), reward
+            merged_in_line = False
+            for col in range(BOARD_SIZE - 1, -1, -1):  # 2, 1, 0 (when BOARD_SIZE == 3)
+                if line[col] == 0:
+                    continue
+                for r_col in range(col + 1, BOARD_SIZE):
+                    if line[col] == line[r_col] and not merged_in_line:
+                        line[r_col] += 1
+                        reward += line[r_col]
+                        line[col] = 0
+                        moved = True
+                        merged_in_line = True
+                        break
+                    elif r_col == BOARD_SIZE - 1 and line[r_col] == 0:
+                        line[r_col] = line[col]
+                        line[col] = 0
+                        moved = True
+                        break
+                    elif line[r_col] > 0 and line[r_col - 1] == 0 and col < r_col - 1:
+                        line[r_col - 1] = line[col]
+                        line[col] = 0
+                        moved = True
+                        break
+                    elif line[r_col] > 0:
+                        break
+        return numpy.rot90(rot_board, action), reward, moved
 
     def get_observation(self):
         channels = []
@@ -249,8 +280,8 @@ class Make2048:
     def legal_actions(self):
         actions = []
         for a in range(4):
-            _, reward = self.virtual_move(self.board, a)
-            if reward > 0:
+            _, _, moved = self.virtual_move(self.board, a)
+            if moved > 0:
                 actions.append(a)
         return actions
 
@@ -267,7 +298,7 @@ class Make2048:
         return choice
 
     def render(self):
-        print(numpy.array((2 ** self.board) * numpy.where(self.board > 0, 1, 0) / 2, dtype="int32"))
+        print(numpy.array((2 ** self.board) * numpy.where(self.board > 0, 1, 0), dtype="int32"))
 
     def action_to_string(self, action_number):
         return ["Right", "Up", "Left", "Down"][action_number]
