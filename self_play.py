@@ -77,13 +77,13 @@ class SelfPlay:
                             "muzero_reward": sum(
                                 reward
                                 for i, reward in enumerate(game_history.reward_history)
-                                if game_history.to_play_history[i - 1]
+                                if i > 0 and game_history.to_play_history[i - 1]
                                 == self.config.muzero_player
                             ),
                             "opponent_reward": sum(
                                 reward
                                 for i, reward in enumerate(game_history.reward_history)
-                                if game_history.to_play_history[i - 1]
+                                if i > 0 and game_history.to_play_history[i - 1]
                                 != self.config.muzero_player
                             ),
                         }
