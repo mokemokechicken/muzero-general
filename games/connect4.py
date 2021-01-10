@@ -48,15 +48,15 @@ class MuZeroConfig:
 
         ### Network
         self.network = "resnet"  # "resnet" / "fullyconnected"
-        self.support_size = 1  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
+        self.support_size = 2  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
         
         # Residual Network
         self.downsample = False  # Downsample observations before representation network, False / "CNN" (lighter) / "resnet" (See paper appendix Network Architecture)
-        self.blocks = 2  # Number of blocks in the ResNet
+        self.blocks = 3  # Number of blocks in the ResNet
         self.channels = 32  # Number of channels in the ResNet
-        self.reduced_channels_reward = 4  # Number of channels in reward head
-        self.reduced_channels_value = 4  # Number of channels in value head
-        self.reduced_channels_policy = 4  # Number of channels in policy head
+        self.reduced_channels_reward = 16  # Number of channels in reward head
+        self.reduced_channels_value = 16  # Number of channels in value head
+        self.reduced_channels_policy = 16  # Number of channels in policy head
         self.resnet_fc_reward_layers = [64]  # Define the hidden layers in the reward head of the dynamic network
         self.resnet_fc_value_layers = [64]  # Define the hidden layers in the value head of the prediction network
         self.resnet_fc_policy_layers = [64]  # Define the hidden layers in the policy head of the prediction network
