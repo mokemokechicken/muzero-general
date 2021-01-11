@@ -29,10 +29,10 @@ class MuZeroConfig:
 
 
         ### Self-Play
-        self.num_workers = 1  # Number of simultaneous threads/workers self-playing to feed the replay buffer
-        self.selfplay_on_gpu = False
+        self.num_workers = 2  # Number of simultaneous threads/workers self-playing to feed the replay buffer
+        self.selfplay_on_gpu = True
         self.max_moves = 42  # Maximum number of moves if game is not finished before
-        self.num_simulations = 30  # Number of future moves self-simulated
+        self.num_simulations = 100  # Number of future moves self-simulated
         self.discount = 1  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
 
@@ -75,7 +75,7 @@ class MuZeroConfig:
         self.results_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../results", os.path.basename(__file__)[:-3], datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S"))  # Path to store the model weights and TensorBoard logs
         self.save_model = True  # Save the checkpoint in results_path as model.checkpoint
         self.training_steps = 1000000  # Total number of training steps (ie weights update according to a batch)
-        self.batch_size = 64  # Number of parts of games to train on at each training step
+        self.batch_size = 256  # Number of parts of games to train on at each training step
         self.checkpoint_interval = 10  # Number of training steps before using the model for self-playing
         self.value_loss_weight = 0.25  # Scale the value loss to avoid overfitting of the value function, paper recommends 0.25 (See paper appendix Reanalyze)
         self.train_on_gpu = torch.cuda.is_available()  # Train on GPU if available
@@ -93,7 +93,7 @@ class MuZeroConfig:
 
         ### Replay Buffer
         self.replay_buffer_size = 10000  # Number of self-play games to keep in the replay buffer
-        self.num_unroll_steps = 8  # Number of game moves to keep for every batch element
+        self.num_unroll_steps = 3  # Number of game moves to keep for every batch element
         self.td_steps = 42  # Number of steps in the future to take into account for calculating the target value
         self.PER = True  # Prioritized Replay (See paper appendix Training), select in priority the elements in the replay buffer which are unexpected for the network
         self.PER_alpha = 0.5  # How much prioritization is used, 0 corresponding to the uniform case, paper suggests 1
@@ -118,7 +118,12 @@ class MuZeroConfig:
         Returns:
             Positive float.
         """
-        return 1
+        if trained_steps < self.training_steps * 0.5:
+            return 1
+        elif trained_steps < self.training_steps * 0.75:
+            return 0.5
+        else:
+            return 0.25
 
 
 class Game(AbstractGame):
