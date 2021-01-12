@@ -37,6 +37,11 @@ class SelfPlay:
             self.model.set_weights(ray.get(shared_storage.get_info.remote("weights")))
 
             if not test_mode:
+                if hasattr(self.config, "num_simulations_fn"):
+                    num_played_games = ray.get(shared_storage.get_info.remote("num_played_games"))
+                    num_simulations = self.config.num_simulations_fn(num_played_games)
+                else:
+                    num_simulations = None
                 game_history = self.play_game(
                     self.config.visit_softmax_temperature_fn(
                         trained_steps=ray.get(
@@ -47,6 +52,7 @@ class SelfPlay:
                     False,
                     "self",
                     0,
+                    num_simulations=num_simulations,
                 )
 
                 replay_buffer.save_game.remote(game_history, shared_storage)
@@ -108,7 +114,7 @@ class SelfPlay:
         self.close_game()
 
     def play_game(
-        self, temperature, temperature_threshold, render, opponent, muzero_player
+        self, temperature, temperature_threshold, render, opponent, muzero_player, num_simulations=None,
     ):
         """
         Play one game with actions based on the Monte Carlo tree search at each moves.
@@ -148,6 +154,7 @@ class SelfPlay:
                         self.game.legal_actions(),
                         self.game.to_play(),
                         True,
+                        num_simulations=num_simulations,
                     )
                     action = self.select_action(
                         root,
@@ -267,6 +274,7 @@ class MCTS:
         to_play,
         add_exploration_noise,
         override_root_with=None,
+        num_simulations=None,
     ):
         """
         At the root of the search tree we use the representation function to obtain a
@@ -274,6 +282,7 @@ class MCTS:
         We then run a Monte Carlo Tree Search using only action sequences and the model
         learned by the network.
         """
+        num_simulations = num_simulations or self.config.num_simulations
         if override_root_with:
             root = override_root_with
             root_predicted_value = None
@@ -318,7 +327,7 @@ class MCTS:
         min_max_stats = MinMaxStats()
 
         max_tree_depth = 0
-        for _ in range(self.config.num_simulations):
+        for _ in range(num_simulations):
             virtual_to_play = to_play
             node = root
             search_path = [node]
