@@ -6,6 +6,7 @@ import ray
 import torch
 
 import models
+from self_play import MCTS
 
 
 @ray.remote
@@ -238,6 +239,8 @@ class ReplayBuffer:
     def make_target(self, game_history, state_index):
         """
         Generate targets for every unroll steps.
+
+        :param self_play.GameHistory game_history:
         """
         target_values, target_rewards, target_policies, actions = [], [], [], []
         for current_index in range(
@@ -248,7 +251,12 @@ class ReplayBuffer:
             if current_index < len(game_history.root_values):
                 target_values.append(value)
                 target_rewards.append(game_history.reward_history[current_index])
-                target_policies.append(game_history.child_visits[current_index])
+                target_policies.append(
+                    game_history.child_visits[current_index]
+                    if game_history.reanalysed_child_visits is None
+                    else game_history.reanalysed_child_visits[current_index]
+                )
+
                 actions.append(game_history.action_history[current_index])
             elif current_index == len(game_history.root_values):
                 target_values.append(0)
@@ -316,28 +324,36 @@ class Reanalyse:
 
             # Use the last model to provide a fresher, stable n-step value (See paper appendix Reanalyze)
             if self.config.use_last_model_value:
-                observations = [
-                    game_history.get_stacked_observations(
-                        i, self.config.stacked_observations
-                    )
-                    for i in range(len(game_history.root_values))
-                ]
-
-                observations = (
-                    torch.tensor(observations)
-                    .float()
-                    .to(next(self.model.parameters()).device)
-                )
-                values = models.support_to_scalar(
-                    self.model.initial_inference(observations)[0],
-                    self.config.support_size,
-                )
-                game_history.reanalysed_predicted_root_values = (
-                    torch.squeeze(values).detach().cpu().numpy()
-                )
+                self.reanalyse_policy_and_value(game_history)
 
             replay_buffer.update_game_history.remote(game_id, game_history)
             self.num_reanalysed_games += 1
             shared_storage.set_info.remote(
                 "num_reanalysed_games", self.num_reanalysed_games
+            )
+
+    def reanalyse_policy_and_value(self, game_history):
+        """
+
+        :param self_play.GameHistory game_history:
+        :return:
+        """
+        game_history.reanalysed_predicted_root_values = None
+        game_history.reanalysed_child_visits = None
+        for i in range(len(game_history.root_values)):
+            observation = game_history.get_stacked_observations(
+                i,
+                self.config.stacked_observations
+            )
+            root, _ = MCTS(self.config).run(
+                self.model,
+                observation,
+                game_history.legal_actions_history[i],
+                game_history.to_play_history[i],
+                True,
+            )
+            game_history.store_search_statistics(
+                root,
+                self.config.action_space,
+                reanalysed=True
             )

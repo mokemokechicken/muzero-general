@@ -167,6 +167,7 @@ class SelfPlay:
                         opponent, stacked_observations
                     )
 
+                game_history.legal_actions_history.append(self.game.legal_actions())
                 observation, reward, done = self.game.step(action)
 
                 if render:
@@ -484,21 +485,34 @@ class GameHistory:
 
     def __init__(self):
         self.observation_history = []
+        self.legal_actions_history = []
         self.action_history = []
         self.reward_history = []
         self.to_play_history = []
         self.child_visits = []
         self.root_values = []
         self.reanalysed_predicted_root_values = None
+        self.reanalysed_child_visits = None
         # For PER
         self.priorities = None
         self.game_priority = None
 
-    def store_search_statistics(self, root, action_space):
+    def store_search_statistics(self, root, action_space, reanalysed=False):
+        if not reanalysed:
+            child_visits = self.child_visits
+            root_values = self.root_values
+        else:
+            if self.reanalysed_child_visits is None:
+                self.reanalysed_child_visits = []
+            if self.reanalysed_predicted_root_values is None:
+                self.reanalysed_predicted_root_values = []
+            child_visits = self.reanalysed_child_visits
+            root_values = self.reanalysed_predicted_root_values
+
         # Turn visit count from root into a policy
         if root is not None:
             sum_visits = sum(child.visit_count for child in root.children.values())
-            self.child_visits.append(
+            child_visits.append(
                 [
                     root.children[a].visit_count / sum_visits
                     if a in root.children
@@ -507,9 +521,9 @@ class GameHistory:
                 ]
             )
 
-            self.root_values.append(root.value())
+            root_values.append(root.value())
         else:
-            self.root_values.append(None)
+            root_values.append(None)
 
     def get_stacked_observations(self, index, num_stacked_observations):
         """
