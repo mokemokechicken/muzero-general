@@ -35,9 +35,26 @@ class MuZeroNetwork:
                 config.support_size,
                 config.downsample,
             )
+        elif config.network == "animal_shogi":
+            from games.animal_shogi import AnimalShogiNetwork
+            return AnimalShogiNetwork(
+                config.observation_shape,
+                config.stacked_observations,
+                len(config.action_space),
+                config.blocks,
+                config.channels,
+                config.reduced_channels_reward,
+                config.reduced_channels_value,
+                config.reduced_channels_policy,
+                config.resnet_fc_reward_layers,
+                config.resnet_fc_value_layers,
+                config.resnet_fc_policy_layers,
+                config.support_size,
+                config.downsample,
+            )
         else:
             raise NotImplementedError(
-                'The network parameter should be "fullyconnected" or "resnet".'
+                'The network parameter should be "fullyconnected", "resnet" or "animal_shogi".'
             )
 
 
@@ -548,7 +565,7 @@ class MuZeroResidualNetwork(AbstractNetwork):
         ) / scale_encoded_state
         return encoded_state_normalized
 
-    def dynamics(self, encoded_state, action):
+    def encode_hidden_and_action(self, encoded_state, action):
         # Stack encoded_state with a game specific one hot encoded action (See paper appendix Network Architecture)
         action_one_hot = (
             torch.ones(
@@ -566,6 +583,10 @@ class MuZeroResidualNetwork(AbstractNetwork):
             action[:, :, None, None] * action_one_hot / self.action_space_size
         )
         x = torch.cat((encoded_state, action_one_hot), dim=1)
+        return x
+
+    def dynamics(self, encoded_state, action):
+        x = self.encode_hidden_and_action(encoded_state, action)
         next_encoded_state, reward = self.dynamics_network(x)
 
         # Scale encoded state between [0, 1] (See paper appendix Training)
