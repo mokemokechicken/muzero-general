@@ -353,4 +353,17 @@ class Connect4:
         return action
 
     def render(self):
-        print(self.board[::-1])
+        lines = []
+        for row in self.board[::-1]:
+            line = []
+            for col in row:
+                ch = " "
+                if col == -1:
+                    ch = "x"
+                elif col == 1:
+                    ch = "o"
+                line.append(ch)
+            lines.append(" ".join(line))
+        lines.append("-"*14)
+        lines.append(" ".join("1234567"))
+        print("\n".join(lines))
