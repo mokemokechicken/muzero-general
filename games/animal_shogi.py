@@ -6,6 +6,7 @@ from typing import Optional
 
 import numpy
 import torch
+from colorama import Back
 
 
 try:
@@ -29,6 +30,10 @@ ACTION_SPACE_SIZE = (
         (BOARD_SIZE_X * BOARD_SIZE_Y) *  # TO
         2  # Promote
 )
+
+P1_COLOR = Back.BLUE
+P2_COLOR = Back.RED
+RESET = Back.RESET
 
 
 class MuZeroConfig:
@@ -363,6 +368,7 @@ class AnimalShogi:
         return diff in ALLOWED_MOVES[unit_kind]
 
     def is_legal(self, move: Move):
+        player = self.to_play()
         if move.from_stock is not None:
             remain_num = self.stocks[self.to_play()][move.from_stock]
             if remain_num < 1:
@@ -377,8 +383,11 @@ class AnimalShogi:
                 return False
             elif unit_kind > 5 and self.to_play() == 0:  # opponent unit
                 return False
-            if move.promotion == 1 and unit_kind not in (P1, P2):  # only P can promote.
-                return False
+            if move.promotion == 1:
+                if player == 0 and (unit_kind != P1 or move.to_pos()[0] != 0):
+                    return False
+                elif player == 1 and (unit_kind != P2 or move.to_pos()[0] != BOARD_SIZE_Y-1):
+                    return False
             if not self.is_legal_move_direction(unit_kind, move.from_pos(), move.to_pos()):
                 return False
 
@@ -419,6 +428,10 @@ class AnimalShogi:
 
     def human_to_action(self):
         stock_kinds = {"E": 0, "G": 1, "C": 2}
+        if self.to_play() == 0:
+            print(P1_COLOR + f"Player1" + RESET)
+        else:
+            print(P2_COLOR + f"Player2" + RESET)
 
         def convert_position_string_to_pos_index(pos_str):
             try:
@@ -433,12 +446,13 @@ class AnimalShogi:
         from_stock = None
         from_board = None
         to_board = None
-        promotion = 0
         player = self.to_play()
         while True:
             while True:
                 try:
                     from_str = input(f"From(ex: '1a', '2d', or 'E' 'G' 'C' from stock): ").strip()
+                    if from_str == "random":
+                        return numpy.random.choice(self.legal_actions())
                     if from_str.upper() in stock_kinds:
                         from_stock = stock_kinds[from_str.upper()]
                         if self.stocks[player][from_stock] > 0:
@@ -449,6 +463,8 @@ class AnimalShogi:
                         from_board = convert_position_string_to_pos_index(from_str)
                         if from_board is None:
                             print(f"illegal position {from_str}")
+                        else:
+                            break
                 except:
                     pass
                 print("Wrong input, try again")
@@ -456,6 +472,8 @@ class AnimalShogi:
             while True:
                 try:
                     to_str = input(f"To(ex: '1a', '2d'): ").strip()
+                    if to_str == "random":
+                        return numpy.random.choice(self.legal_actions())
                     if len(to_str) == 2:
                         to_board = convert_position_string_to_pos_index(to_str)
                         if to_str is None:
@@ -481,20 +499,18 @@ class AnimalShogi:
         return move.encode_to_action_index()
 
     def render(self):
-        from colorama import Back
-
         chars = {
-            0: Back.CYAN + "  " + Back.RESET,
-            L1: Back.BLUE + "🐯" + Back.RESET,
-            E1: Back.BLUE + "🐘" + Back.RESET,
-            G1: Back.BLUE + "🐴" + Back.RESET,
-            P1: Back.BLUE + "🐥" + Back.RESET,
-            C1: Back.BLUE + "🐔" + Back.RESET,
-            L2: Back.GREEN + "🐯" + Back.RESET,
-            E2: Back.GREEN + "🐘" + Back.RESET,
-            G2: Back.GREEN + "🐴" + Back.RESET,
-            P2: Back.GREEN + "🐥" + Back.RESET,
-            C2: Back.GREEN + "🐔" + Back.RESET,
+            0: "  ",
+            L1: P1_COLOR + "🐯" + RESET,
+            E1: P1_COLOR + "🐘" + RESET,
+            G1: P1_COLOR + "🐴" + RESET,
+            P1: P1_COLOR + "🐥" + RESET,
+            C1: P1_COLOR + "🐔" + RESET,
+            L2: P2_COLOR + "🐯" + RESET,
+            E2: P2_COLOR + "🐘" + RESET,
+            G2: P2_COLOR + "🐴" + RESET,
+            P2: P2_COLOR + "🐥" + RESET,
+            C2: P2_COLOR + "🐔" + RESET,
         }
         lines = []
         for line in self.board:
@@ -510,12 +526,12 @@ class AnimalShogi:
                 stock += "🐘🐴🐥"[i] * num
             stock_lines.append(stock)
 
-        print(Back.GREEN + f"stock: {stock_lines[1]}" + Back.RESET)
-        print(" | 1 2 3")
-        print("-+------")
-        print("\n".join([f"{m}|{line}" for m, line in zip("abcd", lines)]))
-        print("-+------")
-        print(Back.BLUE + f"stock: {stock_lines[0]}" + Back.RESET)
+        print(P2_COLOR + f"stock: {stock_lines[1]}" + RESET)
+        print(" | 1 2 3|")
+        print("-+------+-")
+        print("\n".join([f"{m}|{line}|" for m, line in zip("abcd", lines)]))
+        print("-+------+-")
+        print(P1_COLOR + f"stock: {stock_lines[0]}" + RESET)
 
     def action_to_string(self, action_number):
         move = Move.decode_from_action_index(action_number)
@@ -577,3 +593,16 @@ ALLOWED_MOVES = {
 class AnimalShogiNetwork(MuZeroResidualNetwork):
     def encode_hidden_and_action(self, encoded_state, action):
         super().encode_hidden_and_action(encoded_state, action)
+
+
+if __name__ == "__main__":
+    game = Game()
+    game.reset()
+    while True:
+        game.render()
+        action = game.human_to_action()
+        print(f"Player{game.to_play()}: {game.action_to_string(action)}")
+        _, r, done = game.step(action)
+        if done:
+            print(f"reward: {r}, done")
+            break
