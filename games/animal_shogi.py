@@ -280,7 +280,6 @@ class Move:
 
 
 class AnimalShogi:
-    # Lion=L, Elephant=E, Giraph=G, Chick=P, Chicken=C
     board = None
     stocks = None
     player = 0
@@ -294,7 +293,12 @@ class AnimalShogi:
         #   player-1: L=6, E=7, G=8, P=9, C=10
         # stocks for p0 = (E, G, P)
         # stocks for p1 = (E, G, P)
-        self.board = numpy.zeros((BOARD_SIZE_Y, BOARD_SIZE_X), dtype="int32")
+        self.board = numpy.array([
+            [G2, L2, E2],
+            [0 , P2,  0],
+            [0 , P1,  0],
+            [E1, L1, G1],
+        ], dtype="int32")
         self.stocks = numpy.zeros((2, 3), dtype="int32")
         self.player = 0
 
@@ -309,22 +313,53 @@ class AnimalShogi:
         move = Move.decode_from_action_index(action)
         if not self.is_legal(move):
             return self.get_observation(), -1, True
-        self.do_move(move)
-        reward = 0
-        done = False
+        win, lose, done = self.do_move(move)
         self.player = 1 - self.player
+        reward = 0
+        if win:
+            reward = 1
+        elif lose:
+            reward = -1
         return self.get_observation(), reward, done
 
     def do_move(self, move: Move):
-        pass
+        player = self.to_play()
+        win = False
+        lose = False
+        done = False
+        if move.from_stock is not None:  # drop
+            self.stocks[player][move.from_stock] -= 1
+            unit_kind = move.from_stock + 2 + player * 5  # (2,3,4 or 7,8,9)
+            self.board[move.to_pos()] = unit_kind
+        else:
+            unit_kind = self.board[move.from_pos()]
+            self.board[move.from_pos()] = 0
+            if self.board[move.to_pos()] > 0:  # capture
+                captured_unit_kind = self.board[move.to_pos()] % 5
+                if captured_unit_kind == 1:  # Lion
+                    done = win = True
+                else:
+                    stock_kind = [0, 1, 2, 2][captured_unit_kind-2]  # board:E, G, P, C -> stock:E, G, P, P
+                    self.stocks[player][stock_kind] += 1
+            self.board[move.to_pos()] = unit_kind + move.promotion
+        if player == 0 and numpy.any(self.board[BOARD_SIZE_Y-1] == L2):  # Player1 Lion Try!
+            lose = done = True
+        elif player == 1 and numpy.any(self.board[0] == L1):  # Player0 Lion Try!
+            lose = done = True
+        return win, lose, done
+
+    @staticmethod
+    def is_legal_move_direction(unit_kind, from_pos, to_pos):
+        diff = (to_pos[0]-from_pos[0], to_pos[1]-from_pos[1])
+        return diff in ALLOWED_MOVES[unit_kind]
 
     def is_legal(self, move: Move):
         if move.from_stock is not None:
             remain_num = self.stocks[self.to_play()][move.from_stock]
             if remain_num < 1:
                 return False
-            # self.stocks[self.to_play()][move.from_stock] -= 1
-            # unit_kind = move.from_stock + 2 + self.to_play() * 5  # (2,3,4 or 7,8,9)
+            if move.promotion == 1:
+                return False
         else:
             unit_kind = self.board[move.from_pos()]
             if unit_kind == 0:  # no unit there
@@ -333,6 +368,11 @@ class AnimalShogi:
                 return False
             elif unit_kind > 5 and self.to_play() == 0:  # opponent unit
                 return False
+            if move.promotion == 1 and unit_kind not in (P1, P2):  # only P can promote.
+                return False
+            if not self.is_legal_move_direction(unit_kind, move.from_pos(), move.to_pos()):
+                return False
+
         captured = self.board[move.to_pos()]
         if captured:
             if move.from_stock is not None:
@@ -366,6 +406,44 @@ class AnimalShogi:
 
     def action_to_string(self, action_number):
         return str(action_number)
+
+
+# first player
+L1 = 1  # Lion
+E1 = 2  # Elephant
+G1 = 3  # Giraph
+P1 = 4  # Chick  (Piyo Piyo! or Pawn)
+C1 = 5  # Chicken
+
+# second player
+L2 = 6
+E2 = 7
+G2 = 8
+P2 = 9
+C2 = 10
+
+# move direction
+UL = (-1, -1)  # Y, X
+UU = (-1,  0)
+UR = (-1,  1)
+ML = ( 0, -1)
+MR = ( 0,  1)
+DL = ( 1, -1)
+DD = ( 1,  0)
+DR = ( 1,  1)
+
+ALLOWED_MOVES = {
+    L1: [UL, UU, UR, ML, MR, DL, DD, DR],
+    L2: [UL, UU, UR, ML, MR, DL, DD, DR],
+    E1: [UL, UR, DL, DR],
+    E2: [UL, UR, DL, DR],
+    G1: [UU, ML, MR, DD],
+    G2: [UU, ML, MR, DD],
+    P1: [UU],
+    P2: [DD],
+    C1: [UL, UU, UR, ML, MR, DD],
+    C2: [DL, DD, DR, ML, MR, UU],
+}
 
 
 class AnimalShogiNetwork(MuZeroResidualNetwork):
