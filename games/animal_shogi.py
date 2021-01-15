@@ -1,6 +1,7 @@
 import datetime
 import os
-from dataclasses import dataclass
+import copy
+from dataclasses import dataclass, astuple
 from typing import Optional
 
 import numpy
@@ -23,6 +24,12 @@ BOARD_SIZE_Y = 4
 UNIT_KIND_NUM = 5  # Lion, Elephant, Giraph, Piyo, Chicken(Piyo Promoted)
 CAPTURABLE_KIND_NUM = 3  # Elephant, Giraph, Piyo
 
+ACTION_SPACE_SIZE = (
+        (BOARD_SIZE_X * BOARD_SIZE_Y + CAPTURABLE_KIND_NUM) *  # FROM
+        (BOARD_SIZE_X * BOARD_SIZE_Y) *  # TO
+        2  # Promote
+)
+
 
 class MuZeroConfig:
     def __init__(self):
@@ -34,11 +41,7 @@ class MuZeroConfig:
 
         ### Game
         self.observation_shape = ((UNIT_KIND_NUM+CAPTURABLE_KIND_NUM)*2 + 1, BOARD_SIZE_Y, BOARD_SIZE_X)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
-        self.action_space = list(range(
-            (BOARD_SIZE_X * BOARD_SIZE_Y + CAPTURABLE_KIND_NUM) *  # FROM
-            (BOARD_SIZE_X * BOARD_SIZE_Y) *  # TO
-            2  # PROMOTE or not(for PIYO only)
-        ))  # Fixed list of all possible actions. You should only edit the length
+        self.action_space = list(range(ACTION_SPACE_SIZE))  # Fixed list of all possible actions. You should only edit the length
         self.players = list(range(2))  # List of players. You should only edit the length
         self.stacked_observations = 0  # Number of previous observations and previous actions to add to the current observation
 
@@ -278,11 +281,15 @@ class Move:
         assert self.to_board is not None
         return self.to_board // BOARD_SIZE_X, self.to_board % BOARD_SIZE_X
 
+    def clone(self):
+        return Move(*astuple(self))
+
 
 class AnimalShogi:
     board = None
     stocks = None
     player = 0
+    _legal_actions = None
 
     def __init__(self):
         self.init_game()
@@ -299,8 +306,9 @@ class AnimalShogi:
             [0 , P1,  0],
             [E1, L1, G1],
         ], dtype="int32")
-        self.stocks = numpy.zeros((2, 3), dtype="int32")
+        self.stocks = numpy.zeros((2, CAPTURABLE_KIND_NUM), dtype="int32")
         self.player = 0
+        self._legal_actions = None
 
     def reset(self):
         self.init_game()
@@ -323,6 +331,7 @@ class AnimalShogi:
         return self.get_observation(), reward, done
 
     def do_move(self, move: Move):
+        self._legal_actions = None
         player = self.to_play()
         win = False
         lose = False
@@ -339,7 +348,7 @@ class AnimalShogi:
                 if captured_unit_kind == 1:  # Lion
                     done = win = True
                 else:
-                    stock_kind = [0, 1, 2, 2][captured_unit_kind-2]  # board:E, G, P, C -> stock:E, G, P, P
+                    stock_kind = [2, None, 0, 1, 2][captured_unit_kind]  # board:E, G, P, C -> stock:E, G, P, P
                     self.stocks[player][stock_kind] += 1
             self.board[move.to_pos()] = unit_kind + move.promotion
         if player == 0 and numpy.any(self.board[BOARD_SIZE_Y-1] == L2):  # Player1 Lion Try!
@@ -384,28 +393,147 @@ class AnimalShogi:
         return True
 
     def get_observation(self):
-        return numpy.array([], dtype="int32")
+        channels = []
+        # board
+        for kind in range(1, 11):
+            ch = numpy.where(self.board == kind, 1, 0)
+            channels.append(ch)
+        # stock
+        for player in [0, 1]:
+            for kind in range(CAPTURABLE_KIND_NUM):
+                ch = numpy.full_like(channels[0], self.stocks[player][kind] / 2.)
+                channels.append(ch)
+        # to_play
+        ch = numpy.full_like(channels[0], 1 - self.to_play() * 2)
+        channels.append(ch)
+        return numpy.array(channels, dtype="int32")
 
     def legal_actions(self):
-        return list(range(BOARD_SIZE_X))
+        if self._legal_actions is None:
+            ret = []
+            for action in range(ACTION_SPACE_SIZE):
+                if self.is_legal(Move.decode_from_action_index(action)):
+                    ret.append(action)
+            self._legal_actions = ret
+        return copy.copy(self._legal_actions)
 
     def human_to_action(self):
-        while True:
+        stock_kinds = {"E": 0, "G": 1, "C": 2}
+
+        def convert_position_string_to_pos_index(pos_str):
             try:
-                action = int(input(f"Input(0 ~ {BOARD_SIZE_X-1}) "
-                                   f"NextNumber={2**(self.next_number+self.upgraded_count)}: ").strip())
-                if action in self.legal_actions():
-                    return action
+                pos_str = pos_str.lower()
+                col = int(pos_str[0]) - 1
+                row = "abcd".index(pos_str[1])
+                return row * BOARD_SIZE_X + col
             except:
-                pass
-            print("Wrong input, try again")
+                return None
+
+        # input from
+        from_stock = None
+        from_board = None
+        to_board = None
+        promotion = 0
+        player = self.to_play()
+        while True:
+            while True:
+                try:
+                    from_str = input(f"From(ex: '1a', '2d', or 'E' 'G' 'C' from stock): ").strip()
+                    if from_str.upper() in stock_kinds:
+                        from_stock = stock_kinds[from_str.upper()]
+                        if self.stocks[player][from_stock] > 0:
+                            break
+                        else:
+                            print(f"You do not have {from_str}")
+                    elif len(from_str) == 2:
+                        from_board = convert_position_string_to_pos_index(from_str)
+                        if from_board is None:
+                            print(f"illegal position {from_str}")
+                except:
+                    pass
+                print("Wrong input, try again")
+
+            while True:
+                try:
+                    to_str = input(f"To(ex: '1a', '2d'): ").strip()
+                    if len(to_str) == 2:
+                        to_board = convert_position_string_to_pos_index(to_str)
+                        if to_str is None:
+                            print(f"illegal position {from_str}")
+                        else:
+                            break
+                except:
+                    pass
+                print("Wrong input, try again")
+
+            move = Move(from_board, from_stock, to_board, 0)
+            if self.is_legal(move) and move.from_board is not None:
+                m2 = move.clone()
+                m2.promotion = 1
+                if self.is_legal(m2):
+                    pr_str = input("Promotion? [Y]/[n]: ").lower()
+                    if pr_str != "n":
+                        move.promotion = 1
+            if self.is_legal(move):
+                break
+            else:
+                print("Illegal Move, try again")
+        return move.encode_to_action_index()
 
     def render(self):
-        print(numpy.array((2 ** (self.board+self.upgraded_count)) * numpy.where(self.board > 0, 1, 0), dtype="int32"))
-        print(f"upgraded count: {self.upgraded_count}")
+        from colorama import Back
+
+        chars = {
+            0: Back.CYAN + "  " + Back.RESET,
+            L1: Back.BLUE + "🐯" + Back.RESET,
+            E1: Back.BLUE + "🐘" + Back.RESET,
+            G1: Back.BLUE + "🐴" + Back.RESET,
+            P1: Back.BLUE + "🐥" + Back.RESET,
+            C1: Back.BLUE + "🐔" + Back.RESET,
+            L2: Back.GREEN + "🐯" + Back.RESET,
+            E2: Back.GREEN + "🐘" + Back.RESET,
+            G2: Back.GREEN + "🐴" + Back.RESET,
+            P2: Back.GREEN + "🐥" + Back.RESET,
+            C2: Back.GREEN + "🐔" + Back.RESET,
+        }
+        lines = []
+        for line in self.board:
+            line_ch_list = []
+            for kind in line:
+                line_ch_list.append(chars[kind])
+            lines.append("".join(line_ch_list))
+
+        stock_lines = []
+        for stocks in self.stocks:
+            stock = ""
+            for i, num in enumerate(stocks):
+                stock += "🐘🐴🐥"[i] * num
+            stock_lines.append(stock)
+
+        print(Back.GREEN + f"stock: {stock_lines[1]}" + Back.RESET)
+        print(" | 1 2 3")
+        print("-+------")
+        print("\n".join([f"{m}|{line}" for m, line in zip("abcd", lines)]))
+        print("-+------")
+        print(Back.BLUE + f"stock: {stock_lines[0]}" + Back.RESET)
 
     def action_to_string(self, action_number):
-        return str(action_number)
+        move = Move.decode_from_action_index(action_number)
+        if move.from_board is not None:
+            from_pos, to_pos = move.from_pos(), move.to_pos()
+            kind = self.board[from_pos]
+            if kind == 0:
+                ch = " "
+            else:
+                ch = "🐯🐘🐴🐥🐔"[(kind-1) % 5]
+            pos_from = "123"[from_pos[1]] + "abcd"[from_pos[0]]
+            pos_to = "123"[to_pos[1]] + "abcd"[to_pos[0]]
+            return f"{pos_from}{pos_to}{ch}"
+        else:
+            to_pos = move.to_pos()
+            pos_to = "123"[to_pos[1]] + "abcd"[to_pos[0]]
+            ch = "🐘🐴🐥"[move.from_stock]
+            return f"->{pos_to}{ch}"
 
 
 # first player
