@@ -52,7 +52,7 @@ class MuZeroConfig:
 
         # Evaluate
         self.muzero_player = 0  # Turn Muzero begins to play (0: MuZero plays first, 1: MuZero plays second)
-        self.opponent = "expert"  # Hard coded agent that MuZero faces to assess his progress in multiplayer games. It doesn't influence training. None, "random" or "expert" if implemented in the Game class
+        self.opponent = "random"  # Hard coded agent that MuZero faces to assess his progress in multiplayer games. It doesn't influence training. None, "random" or "expert" if implemented in the Game class
 
 
         ### Self-Play
@@ -83,10 +83,10 @@ class MuZeroConfig:
         self.channels = 128  # Number of channels in the ResNet
         self.reduced_channels_reward = 16  # Number of channels in reward head
         self.reduced_channels_value = 16  # Number of channels in value head
-        self.reduced_channels_policy = 16  # Number of channels in policy head
+        self.reduced_channels_policy = 32  # Number of channels in policy head
         self.resnet_fc_reward_layers = [8]  # Define the hidden layers in the reward head of the dynamic network
         self.resnet_fc_value_layers = [8]  # Define the hidden layers in the value head of the prediction network
-        self.resnet_fc_policy_layers = [8]  # Define the hidden layers in the policy head of the prediction network
+        self.resnet_fc_policy_layers = [64]  # Define the hidden layers in the policy head of the prediction network
 
         # Fully Connected Network
         self.encoding_size = 32
@@ -592,7 +592,78 @@ ALLOWED_MOVES = {
 
 class AnimalShogiNetwork(MuZeroResidualNetwork):
     def encode_hidden_and_action(self, encoded_state, action):
-        super().encode_hidden_and_action(encoded_state, action)
+        """
+
+        :param encoded_state: [batch, ch, Height, Width]
+        :param action: [batch, 1]
+        :return:
+        """
+        channels = self.encode_action(encoded_state.shape, action)
+        return torch.cat([encoded_state] + channels, dim=1)
+
+    @staticmethod
+    def encode_action(shape, action):
+        """
+
+        :param shape: tuple(batch, ch, h, w)
+        :param action: [batch, 1]
+
+        >>> sh = (2, 8, 4, 3)
+        >>> moves = [Move(5, None, 0, 1), Move(None, 1, 11, 0)]
+        >>> action = torch.tensor([[m.encode_to_action_index()] for m in moves])
+        >>> channels = torch.cat(AnimalShogiNetwork.encode_action(sh, action), dim=1)
+        >>> channels.shape
+        torch.Size([2, 6, 4, 3])
+        >>> assert channels[0, 0, 1, 2] == 1.  # From
+        >>> assert torch.sum(channels[0, 0, :, :]) == 1
+        >>> assert torch.sum(channels[0, 1:4, :, :]) == 0  # Stocks
+        >>> assert channels[0, 4, 0, 0] == 1  # To
+        >>> assert torch.sum(channels[0, 4, :, :]) == 1  # To
+        >>> assert torch.sum(channels[0, 5, :, :]) == 12  # Promotion
+        >>> #
+        >>> assert torch.sum(channels[1, 0, :, :]) == 0  # From Board
+        >>> assert torch.sum(channels[1, 1, :, :]) == 0  # Stock
+        >>> assert torch.sum(channels[1, 2, :, :]) == 12
+        >>> assert torch.sum(channels[1, 3, :, :]) == 0
+        >>> assert channels[1, 4, 3, 2] == 1            # To
+        >>> assert torch.sum(channels[1, 4, :, :]) == 1
+        >>> assert torch.sum(channels[1, 5, :, :]) == 0  # Promotion
+        """
+        def ones(i):
+            sh = shape[0], i, shape[2], shape[3]
+            return torch.ones(sh).to(action.device).float()
+
+        def zeros(i):
+            sh = shape[0], i, shape[2], shape[3]
+            return torch.zeros(sh).to(action.device).float()
+
+        board_size = BOARD_SIZE_Y * BOARD_SIZE_X
+        promote = action % 2
+        action //= 2
+        to_board = (action % board_size).long().squeeze()
+        action //= board_size
+        from_board = torch.where(action < board_size, action, torch.tensor(-1)).long().squeeze()
+        from_stock = torch.where(action < board_size, torch.tensor(-1), action-board_size).long().squeeze()
+
+        channels = []
+        indexes = torch.arange(len(action)).long()
+        # From
+        from_ch = zeros(1)
+        from_ch[indexes, :, from_board // BOARD_SIZE_X, from_board % BOARD_SIZE_X] = (
+            torch.where(from_board >= 0., 1., 0.)[:, None].float()
+        )
+        channels.append(from_ch)
+        # Stock
+        stocks = zeros(CAPTURABLE_KIND_NUM)
+        stocks[indexes, from_stock, :, :] = torch.where(from_stock >= 0., 1., 0.)[:, None, None].float()
+        channels.append(stocks)
+        # To
+        to_ch = zeros(1)
+        to_ch[indexes, :, to_board // BOARD_SIZE_X, to_board % BOARD_SIZE_X] = 1.
+        channels.append(to_ch)
+        # promote
+        channels.append(ones(1) * promote[:, :, None, None])
+        return channels
 
 
 if __name__ == "__main__":
@@ -606,3 +677,5 @@ if __name__ == "__main__":
         if done:
             print(f"reward: {r}, done")
             break
+
+
