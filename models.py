@@ -371,20 +371,21 @@ class DynamicsNetwork(torch.nn.Module):
         self,
         num_blocks,
         num_channels,
+        num_action_channels,
         reduced_channels_reward,
         fc_reward_layers,
         full_support_size,
         block_output_size_reward,
     ):
         super().__init__()
-        self.conv = conv3x3(num_channels, num_channels - 1)
-        self.bn = torch.nn.BatchNorm2d(num_channels - 1)
+        self.conv = conv3x3(num_channels+num_action_channels, num_channels)
+        self.bn = torch.nn.BatchNorm2d(num_channels)
         self.resblocks = torch.nn.ModuleList(
-            [ResidualBlock(num_channels - 1) for _ in range(num_blocks)]
+            [ResidualBlock(num_channels) for _ in range(num_blocks)]
         )
 
         self.conv1x1_reward = torch.nn.Conv2d(
-            num_channels - 1, reduced_channels_reward, 1
+            num_channels, reduced_channels_reward, 1
         )
         self.block_output_size_reward = block_output_size_reward
         self.fc = mlp(
@@ -509,7 +510,8 @@ class MuZeroResidualNetwork(AbstractNetwork):
         self.dynamics_network = torch.nn.DataParallel(
             DynamicsNetwork(
                 num_blocks,
-                num_channels + 1,
+                num_channels,
+                self.get_action_channel_size(),
                 reduced_channels_reward,
                 fc_reward_layers,
                 self.full_support_size,
@@ -638,6 +640,9 @@ class MuZeroResidualNetwork(AbstractNetwork):
         next_encoded_state, reward = self.dynamics(encoded_state, action)
         policy_logits, value = self.prediction(next_encoded_state)
         return value, reward, policy_logits, next_encoded_state
+
+    def get_action_channel_size(self):
+        return 1
 
 
 ########### End ResNet ###########

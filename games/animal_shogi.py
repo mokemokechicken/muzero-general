@@ -591,6 +591,9 @@ ALLOWED_MOVES = {
 
 
 class AnimalShogiNetwork(MuZeroResidualNetwork):
+    def get_action_channel_size(self):
+        return 6
+
     def encode_hidden_and_action(self, encoded_state, action):
         """
 
@@ -640,10 +643,10 @@ class AnimalShogiNetwork(MuZeroResidualNetwork):
         board_size = BOARD_SIZE_Y * BOARD_SIZE_X
         promote = action % 2
         action //= 2
-        to_board = (action % board_size).long().squeeze()
+        to_board = (action % board_size).long().squeeze(1)
         action //= board_size
-        from_board = torch.where(action < board_size, action, torch.tensor(-1)).long().squeeze()
-        from_stock = torch.where(action < board_size, torch.tensor(-1), action-board_size).long().squeeze()
+        from_board = torch.where(action < board_size, action, torch.tensor(-1)).long().squeeze(1)
+        from_stock = torch.where(action < board_size, torch.tensor(-1), action-board_size).long().squeeze(1)
 
         channels = []
         indexes = torch.arange(len(action)).long()
@@ -677,5 +680,6 @@ if __name__ == "__main__":
         if done:
             print(f"reward: {r}, done")
             break
+
 
 
