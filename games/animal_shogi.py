@@ -152,6 +152,12 @@ class MuZeroConfig:
         else:
             return 0.25
 
+    def num_simulations_fn(self, num_played_games):
+        if num_played_games < self.replay_buffer_size:
+            return 3
+        else:
+            return self.num_simulations
+
 
 class Game(AbstractGame):
     """
@@ -537,7 +543,7 @@ class AnimalShogi:
         move = Move.decode_from_action_index(action_number)
         if move.from_board is not None:
             from_pos, to_pos = move.from_pos(), move.to_pos()
-            kind = self.board[from_pos]
+            kind = self.board[to_pos]
             if kind == 0:
                 ch = " "
             else:
@@ -645,8 +651,9 @@ class AnimalShogiNetwork(MuZeroResidualNetwork):
         action //= 2
         to_board = (action % board_size).long().squeeze(1)
         action //= board_size
-        from_board = torch.where(action < board_size, action, torch.tensor(-1)).long().squeeze(1)
-        from_stock = torch.where(action < board_size, torch.tensor(-1), action-board_size).long().squeeze(1)
+        minus_1 = torch.tensor(-1).to(action.device)
+        from_board = torch.where(action < board_size, action, minus_1).long().squeeze(1)
+        from_stock = torch.where(action < board_size, minus_1, action-board_size).long().squeeze(1)
 
         channels = []
         indexes = torch.arange(len(action)).long()
