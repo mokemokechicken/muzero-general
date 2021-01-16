@@ -52,7 +52,7 @@ class MuZeroConfig:
 
         # Evaluate
         self.muzero_player = 0  # Turn Muzero begins to play (0: MuZero plays first, 1: MuZero plays second)
-        self.opponent = "random"  # Hard coded agent that MuZero faces to assess his progress in multiplayer games. It doesn't influence training. None, "random" or "expert" if implemented in the Game class
+        self.opponent = "expert"  # Hard coded agent that MuZero faces to assess his progress in multiplayer games. It doesn't influence training. None, "random" or "expert" if implemented in the Game class
 
 
         ### Self-Play
@@ -239,6 +239,16 @@ class Game(AbstractGame):
         """
         return self.env.action_to_string(action_number)
 
+    def expert_agent(self):
+        """
+        Hard coded agent that MuZero faces to assess his progress in multiplayer games.
+        It doesn't influence training
+
+        Returns:
+            Action as an integer to take in the current game state
+        """
+        return self.env.expert_action()
+
 
 @dataclass
 class Move:
@@ -303,6 +313,14 @@ class AnimalShogi:
 
     def __init__(self):
         self.init_game()
+
+    def clone(self):
+        obj = AnimalShogi()
+        obj.board = numpy.copy(self.board)
+        obj.stocks = numpy.copy(self.stocks)
+        obj.player = self.player
+        obj._legal_actions = copy.copy(self._legal_actions)
+        return obj
 
     def init_game(self):
         # Board(H=4, W=3)
@@ -503,6 +521,32 @@ class AnimalShogi:
                 print("Illegal Move, try again")
         return move.encode_to_action_index()
 
+    def expert_action(self):
+        best_actions, _ = self.search_moves(self.clone(), 2, self.to_play())
+        return numpy.random.choice(best_actions)
+
+    def search_moves(self, state, search_depth: int, for_player: int):
+        """
+        :param AnimalShogi state:
+        :param search_depth:
+        :param for_player:
+        :return:
+        """
+        action_results = {}
+
+        for action in state.legal_actions():
+            s = state.clone()
+            _, reward, done = s.step(action)
+            if done or search_depth == 0:
+                action_results[action] = reward
+            else:
+                _, best_reward = self.search_moves(s, search_depth-1, for_player)
+                action_results[action] = -best_reward * 0.99
+
+        best_reward = numpy.max(list(action_results.values()))
+        best_actions = [a for a, r in action_results.items() if r == best_reward]
+        return best_actions, best_reward
+
     def render(self):
         chars = {
             0: "  ",
@@ -680,9 +724,9 @@ if __name__ == "__main__":
     game.reset()
     while True:
         game.render()
-        action = game.human_to_action()
-        print(f"Player{game.to_play()}: {game.action_to_string(action)}")
+        action = game.expert_agent()
         _, r, done = game.step(action)
+        print(f"Player{game.to_play()}: {game.action_to_string(action)}")
         if done:
             print(f"reward: {r}, done")
             break
