@@ -126,10 +126,9 @@ class MuZeroConfig:
             return 0.25
 
     def num_simulations_fn(self, num_played_games):
-        if num_played_games < self.replay_buffer_size:
-            return 10
-        else:
-            return self.num_simulations
+        rate = num_played_games / (self.replay_buffer_size * 20)
+        n = numpy.clip(self.num_simulations * rate, 2, self.num_simulations)
+        return int(n)
 
 
 class Game(AbstractGame):
