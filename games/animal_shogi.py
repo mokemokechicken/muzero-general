@@ -64,7 +64,7 @@ class MuZeroConfig:
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
 
         # Root prior exploration noise
-        self.root_dirichlet_alpha = 0.1
+        self.root_dirichlet_alpha = 0.1  # 大きいほうが薄く広い
         self.root_exploration_fraction = 0.25
 
         # UCB formula
@@ -120,7 +120,7 @@ class MuZeroConfig:
 
         ### Replay Buffer
         self.replay_buffer_size = 3000  # Number of self-play games to keep in the replay buffer
-        self.num_unroll_steps = 5  # Number of game moves to keep for every batch element
+        self.num_unroll_steps = 10  # Number of game moves to keep for every batch element
         self.td_steps = self.max_moves  # Number of steps in the future to take into account for calculating the target value
         self.PER = True  # Prioritized Replay (See paper appendix Training), select in priority the elements in the replay buffer which are unexpected for the network
         self.PER_alpha = 0.5  # How much prioritization is used, 0 corresponding to the uniform case, paper suggests 1
@@ -153,8 +153,8 @@ class MuZeroConfig:
             return 0.25
 
     def num_simulations_fn(self, num_played_games):
-        rate = num_played_games / (self.replay_buffer_size * 20)
-        n = numpy.clip(self.num_simulations * rate, 2, self.num_simulations)
+        rate = num_played_games / (self.replay_buffer_size * 10)
+        n = numpy.clip(self.num_simulations * rate, 10, self.num_simulations)
         return int(n)
 
 
