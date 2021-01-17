@@ -593,15 +593,15 @@ class MinMaxStats:
     """
 
     def __init__(self):
-        self.maximum = 1.   # -float("inf")
-        self.minimum = 0.  # float("inf")
+        self.maximum = -float("inf")
+        self.minimum = float("inf")
 
     def update(self, value):
         self.maximum = max(self.maximum, value)
         self.minimum = min(self.minimum, value)
 
     def normalize(self, value):
-        if self.minimum < 0. or self.maximum > 1.:
-            # We normalize only when we have updated the maximum or minimum values
+        if self.minimum < self.maximum:
+            # We normalize only when we have set the maximum and minimum values
             return (value - self.minimum) / (self.maximum - self.minimum)
         return value
