@@ -29,13 +29,13 @@ class MuZeroConfig:
 
 
         ### Self-Play
-        self.num_workers = 3  # Number of simultaneous threads/workers self-playing to feed the replay buffer
+        self.num_workers = 4  # Number of simultaneous threads/workers self-playing to feed the replay buffer
         self.selfplay_on_gpu = False
         self.max_moves = 9  # Maximum number of moves if game is not finished before
         self.num_simulations = 25  # Number of future moves self-simulated
         self.discount = 1  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
-        self.random_move_till_n_action_in_self_play = 3  # choice random moves until
+        # self.random_move_till_n_action_in_self_play = 3  # choice random moves until
 
         # Root prior exploration noise
         self.root_dirichlet_alpha = 0.2
@@ -109,6 +109,9 @@ class MuZeroConfig:
         self.training_delay = 0  # Number of seconds to wait after each training step
         self.ratio = None  # Desired training steps per self played step ratio. Equivalent to a synchronous version, training can take much longer. Set it to None to disable it
 
+    @property
+    def random_move_till_n_action_in_self_play(self):
+        return numpy.random.choice([3, 3, 3, 4, 4, 4, 5, 6])
 
     def visit_softmax_temperature_fn(self, trained_steps):
         """

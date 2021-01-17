@@ -35,7 +35,6 @@ class MuZeroConfig:
         self.num_simulations = 50  # Number of future moves self-simulated
         self.discount = 1  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
-        self.random_move_till_n_action_in_self_play = 4  # choice random moves until
 
         # Root prior exploration noise
         self.root_dirichlet_alpha = 0.2
@@ -110,6 +109,9 @@ class MuZeroConfig:
         self.training_delay = 0  # Number of seconds to wait after each training step
         self.ratio = None  # Desired training steps per self played step ratio. Equivalent to a synchronous version, training can take much longer. Set it to None to disable it
 
+    @property
+    def random_move_till_n_action_in_self_play(self):
+        return numpy.random.choice([2, 4, 4, 4, 5, 5, 5, 6, 6, 7, 8])
 
     def visit_softmax_temperature_fn(self, trained_steps):
         """
