@@ -29,7 +29,7 @@ class MuZeroConfig:
 
 
         ### Self-Play
-        self.num_workers = 2  # Number of simultaneous threads/workers self-playing to feed the replay buffer
+        self.num_workers = 1  # Number of simultaneous threads/workers self-playing to feed the replay buffer
         self.selfplay_on_gpu = True
         self.max_moves = 42  # Maximum number of moves if game is not finished before
         self.num_simulations = 50  # Number of future moves self-simulated
@@ -95,7 +95,7 @@ class MuZeroConfig:
         self.replay_buffer_size = 2000  # Number of self-play games to keep in the replay buffer
         self.num_unroll_steps = 5  # Number of game moves to keep for every batch element
         self.td_steps = 42  # Number of steps in the future to take into account for calculating the target value
-        self.PER = True  # Prioritized Replay (See paper appendix Training), select in priority the elements in the replay buffer which are unexpected for the network
+        self.PER = False  # Prioritized Replay (See paper appendix Training), select in priority the elements in the replay buffer which are unexpected for the network
         self.PER_alpha = 0.5  # How much prioritization is used, 0 corresponding to the uniform case, paper suggests 1
 
         # Reanalyze (See paper appendix Reanalyse)

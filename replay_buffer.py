@@ -107,7 +107,7 @@ class ReplayBuffer:
                 * len(actions)
             )
             if self.config.PER:
-                weight_batch.append(1 / (self.total_samples * game_prob * pos_prob))
+                weight_batch.append(1 / (self.total_samples * game_prob * pos_prob))  # strange?
 
         if self.config.PER:
             weight_batch = numpy.array(weight_batch, dtype="float32") / max(
