@@ -379,17 +379,27 @@ class MCTS:
         """
         Select the child with the highest UCB score.
         """
-        max_ucb = max(
-            self.ucb_score(node, child, min_max_stats)
-            for action, child in node.children.items()
-        )
-        action = numpy.random.choice(
-            [
-                action
-                for action, child in node.children.items()
-                if self.ucb_score(node, child, min_max_stats) == max_ucb
-            ]
-        )
+        max_ucb = -10000
+        actions = []
+        for action, child in node.children.items():
+            ucb = self.ucb_score(node, child, min_max_stats)
+            if max_ucb < ucb:
+                max_ucb = ucb
+                actions = [action]
+            elif max_ucb == ucb:
+                actions.append(action)
+        action = numpy.random.choice(actions)
+        # max_ucb = max(
+        #     self.ucb_score(node, child, min_max_stats)
+        #     for action, child in node.children.items()
+        # )
+        # action = numpy.random.choice(
+        #     [
+        #         action
+        #         for action, child in node.children.items()
+        #         if self.ucb_score(node, child, min_max_stats) == max_ucb
+        #     ]
+        # )
         return action, node.children[action]
 
     def ucb_score(self, parent, child, min_max_stats):
