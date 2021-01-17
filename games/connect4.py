@@ -35,9 +35,10 @@ class MuZeroConfig:
         self.num_simulations = 50  # Number of future moves self-simulated
         self.discount = 1  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
+        self.random_move_till_n_action_in_self_play = 4  # choice random moves until
 
         # Root prior exploration noise
-        self.root_dirichlet_alpha = 0.3
+        self.root_dirichlet_alpha = 0.2
         self.root_exploration_fraction = 0.25
 
         # UCB formula
@@ -48,7 +49,7 @@ class MuZeroConfig:
 
         ### Network
         self.network = "resnet"  # "resnet" / "fullyconnected"
-        self.support_size = 2  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
+        self.support_size = 1  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
         
         # Residual Network
         self.downsample = False  # Downsample observations before representation network, False / "CNN" (lighter) / "resnet" (See paper appendix Network Architecture)
@@ -74,8 +75,8 @@ class MuZeroConfig:
         ### Training
         self.results_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../results", os.path.basename(__file__)[:-3], datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S"))  # Path to store the model weights and TensorBoard logs
         self.save_model = True  # Save the checkpoint in results_path as model.checkpoint
-        self.training_steps = 500000  # Total number of training steps (ie weights update according to a batch)
-        self.batch_size = 64  # Number of parts of games to train on at each training step
+        self.training_steps = 1000000  # Total number of training steps (ie weights update according to a batch)
+        self.batch_size = 256  # Number of parts of games to train on at each training step
         self.checkpoint_interval = 10  # Number of training steps before using the model for self-playing
         self.value_loss_weight = 0.25  # Scale the value loss to avoid overfitting of the value function, paper recommends 0.25 (See paper appendix Reanalyze)
         self.train_on_gpu = torch.cuda.is_available()  # Train on GPU if available
@@ -92,7 +93,7 @@ class MuZeroConfig:
 
 
         ### Replay Buffer
-        self.replay_buffer_size = 2000  # Number of self-play games to keep in the replay buffer
+        self.replay_buffer_size = 10000  # Number of self-play games to keep in the replay buffer
         self.num_unroll_steps = 5  # Number of game moves to keep for every batch element
         self.td_steps = 42  # Number of steps in the future to take into account for calculating the target value
         self.PER = False  # Prioritized Replay (See paper appendix Training), select in priority the elements in the replay buffer which are unexpected for the network
@@ -120,14 +121,12 @@ class MuZeroConfig:
         """
         if trained_steps < self.training_steps * 0.5:
             return 1
-        elif trained_steps < self.training_steps * 0.75:
-            return 0.5
         else:
-            return 0.25
+            return numpy.random.random()
 
     def num_simulations_fn(self, num_played_games):
         rate = num_played_games / (self.replay_buffer_size * 10)
-        n = numpy.clip(self.num_simulations * rate, 10, self.num_simulations)
+        n = numpy.clip(self.num_simulations * rate, 20, self.num_simulations)
         return int(n)
 
 

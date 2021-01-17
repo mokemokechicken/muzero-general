@@ -38,7 +38,7 @@ class MuZeroConfig:
         self.random_move_till_n_action_in_self_play = 3  # choice random moves until
 
         # Root prior exploration noise
-        self.root_dirichlet_alpha = 0.4
+        self.root_dirichlet_alpha = 0.2
         self.root_exploration_fraction = 0.25
 
         # UCB formula
