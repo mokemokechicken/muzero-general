@@ -128,6 +128,8 @@ class SelfPlay:
 
         done = False
 
+        random_move_till_n_action = getattr(self.config, "random_move_till_n_action_in_self_play") or 0
+
         if render:
             self.game.render()
 
@@ -153,7 +155,7 @@ class SelfPlay:
                         stacked_observations,
                         self.game.legal_actions(),
                         self.game.to_play(),
-                        True,
+                        temperature > 0,
                         num_simulations=num_simulations,
                     )
                     action = self.select_action(
@@ -163,6 +165,8 @@ class SelfPlay:
                         or len(game_history.action_history) < temperature_threshold
                         else 0,
                     )
+                    if len(game_history.action_history) <= action and temperature > 0:
+                        action = numpy.random.choice(self.game.legal_actions())
 
                     if render:
                         print(f'Tree depth: {mcts_info["max_tree_depth"]}')
@@ -579,15 +583,15 @@ class MinMaxStats:
     """
 
     def __init__(self):
-        self.maximum = -float("inf")
-        self.minimum = float("inf")
+        self.maximum = 1.   # -float("inf")
+        self.minimum = 0.  # float("inf")
 
     def update(self, value):
         self.maximum = max(self.maximum, value)
         self.minimum = min(self.minimum, value)
 
     def normalize(self, value):
-        if self.maximum > self.minimum:
-            # We normalize only when we have set the maximum and minimum values
+        if self.minimum < 0. or self.maximum > 1.:
+            # We normalize only when we have updated the maximum or minimum values
             return (value - self.minimum) / (self.maximum - self.minimum)
         return value

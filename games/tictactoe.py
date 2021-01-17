@@ -35,9 +35,10 @@ class MuZeroConfig:
         self.num_simulations = 25  # Number of future moves self-simulated
         self.discount = 1  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
+        self.random_move_till_n_action_in_self_play = 3  # choice random moves until
 
         # Root prior exploration noise
-        self.root_dirichlet_alpha = 0.1
+        self.root_dirichlet_alpha = 0.4
         self.root_exploration_fraction = 0.25
 
         # UCB formula
@@ -92,7 +93,7 @@ class MuZeroConfig:
 
 
         ### Replay Buffer
-        self.replay_buffer_size = 1000  # Number of self-play games to keep in the replay buffer
+        self.replay_buffer_size = 3000  # Number of self-play games to keep in the replay buffer
         self.num_unroll_steps = 3  # Number of game moves to keep for every batch element
         self.td_steps = 9  # Number of steps in the future to take into account for calculating the target value
         self.PER = False  # Prioritized Replay (See paper appendix Training), select in priority the elements in the replay buffer which are unexpected for the network
