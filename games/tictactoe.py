@@ -48,7 +48,7 @@ class MuZeroConfig:
 
 
         ### Network
-        self.network = "resnet"  # "resnet" / "fullyconnected"
+        self.network = "fullyconnected"  # "resnet" / "fullyconnected"
         self.support_size = 1  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
 
         # Residual Network
@@ -65,11 +65,10 @@ class MuZeroConfig:
         # Fully Connected Network
         self.encoding_size = 32
         self.fc_representation_layers = []  # Define the hidden layers in the representation network
-        self.fc_dynamics_layers = [16]  # Define the hidden layers in the dynamics network
-        self.fc_reward_layers = [16]  # Define the hidden layers in the reward network
-        self.fc_value_layers = []  # Define the hidden layers in the value network
-        self.fc_policy_layers = []  # Define the hidden layers in the policy network
-
+        self.fc_dynamics_layers = [16, 16]  # Define the hidden layers in the dynamics network
+        self.fc_reward_layers = [8]  # Define the hidden layers in the reward network
+        self.fc_value_layers = [8]  # Define the hidden layers in the value network
+        self.fc_policy_layers = [16]  # Define the hidden layers in the policy network
 
 
         ### Training
