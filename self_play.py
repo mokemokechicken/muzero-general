@@ -78,20 +78,22 @@ class SelfPlay:
                     }
                 )
                 if 1 < len(self.config.players):
+                    muzero_reward = sum(
+                        reward
+                        for i, reward in enumerate(game_history.reward_history)
+                        if i > 0 and game_history.to_play_history[i - 1]
+                        == self.config.muzero_player
+                    )
+                    opponent_reward = sum(
+                        reward
+                        for i, reward in enumerate(game_history.reward_history)
+                        if i > 0 and game_history.to_play_history[i - 1]
+                        != self.config.muzero_player
+                    )
                     shared_storage.set_info.remote(
                         {
-                            "muzero_reward": sum(
-                                reward
-                                for i, reward in enumerate(game_history.reward_history)
-                                if i > 0 and game_history.to_play_history[i - 1]
-                                == self.config.muzero_player
-                            ),
-                            "opponent_reward": sum(
-                                reward
-                                for i, reward in enumerate(game_history.reward_history)
-                                if i > 0 and game_history.to_play_history[i - 1]
-                                != self.config.muzero_player
-                            ),
+                            "muzero_reward": muzero_reward - opponent_reward,
+                            "opponent_reward": opponent_reward - muzero_reward,
                         }
                     )
 
