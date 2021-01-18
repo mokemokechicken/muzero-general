@@ -25,5 +25,5 @@ Check [all_patch_for_master](https://github.com/mokemokechicken/muzero-general/t
 ## Results
 
 - [TicTacToe](./good_results/tictactoe-2021-01-18--01-16-32/): Almost Perfect Trained.
-- connect4: now training.
+- [connect4](./good_results/connect4-2021-01-18--07-07-21/): Good Trained(Always win to expert).
 - animal_shogi: ready to go.
