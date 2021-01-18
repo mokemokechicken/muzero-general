@@ -56,8 +56,8 @@ class MuZeroConfig:
 
 
         ### Self-Play
-        self.num_workers = 3  # Number of simultaneous threads/workers self-playing to feed the replay buffer
-        self.selfplay_on_gpu = True
+        self.num_workers = 5  # Number of simultaneous threads/workers self-playing to feed the replay buffer
+        self.selfplay_on_gpu = False
         self.max_moves = 100  # Maximum number of moves if game is not finished before
         self.num_simulations = 30  # Number of future moves self-simulated
         self.discount = 1  # Chronological discount of the reward
@@ -79,8 +79,8 @@ class MuZeroConfig:
 
         # Residual Network and animal_shogi Network
         self.downsample = False  # Downsample observations before representation network, False / "CNN" (lighter) / "resnet" (See paper appendix Network Architecture)
-        self.blocks = 4  # Number of blocks in the ResNet
-        self.channels = 128  # Number of channels in the ResNet
+        self.blocks = 3  # Number of blocks in the ResNet
+        self.channels = 64  # Number of channels in the ResNet
         self.reduced_channels_reward = 16  # Number of channels in reward head
         self.reduced_channels_value = 16  # Number of channels in value head
         self.reduced_channels_policy = 32  # Number of channels in policy head
@@ -126,7 +126,7 @@ class MuZeroConfig:
         self.PER_alpha = 0.5  # How much prioritization is used, 0 corresponding to the uniform case, paper suggests 1
 
         # Reanalyze (See paper appendix Reanalyse)
-        self.use_last_model_value = True  # Use the last model to provide a fresher, stable n-step value (See paper appendix Reanalyze)
+        self.use_last_model_value = False  # Use the last model to provide a fresher, stable n-step value (See paper appendix Reanalyze)
         self.reanalyse_on_gpu = False
 
 
