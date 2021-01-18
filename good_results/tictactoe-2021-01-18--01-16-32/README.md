@@ -7,6 +7,7 @@
   - Memory: 64GB
   - OS: CentOS 7.5
 - SourceCode Version: [651109a](https://github.com/mokemokechicken/muzero-general/tree/651109a)
+- Trained Model: download [model.checkpoint](./model.checkpoint)
 
 ## TensorBoard
 ![Image1](./TensorBoard-1.png)
