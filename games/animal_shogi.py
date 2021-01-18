@@ -138,7 +138,7 @@ class MuZeroConfig:
 
     @property
     def random_move_till_n_action_in_self_play(self):
-        return numpy.random.choice([2, 2, 4, 4, 4, 4, 4, 4, 4, 6])
+        return numpy.random.choice([0, 2, 2, 4, 4, 4, 4, 4, 4, 4, 6])
 
     def visit_softmax_temperature_fn(self, trained_steps):
         """
