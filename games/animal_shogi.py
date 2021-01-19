@@ -151,7 +151,7 @@ class MuZeroConfig:
         if trained_steps < self.training_steps * 0.5:
             return 1
         else:
-            return numpy.random.random()
+            return 0.5
 
     def num_simulations_fn(self, num_played_games):
         rate = num_played_games / (self.replay_buffer_size * 10)
