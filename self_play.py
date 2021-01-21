@@ -167,7 +167,7 @@ class SelfPlay:
                         or len(game_history.action_history) < temperature_threshold
                         else 0,
                     )
-                    if len(game_history.action_history) <= action and temperature > 0:
+                    if len(game_history.action_history) <= random_move_till_n_action and temperature > 0:
                         action = numpy.random.choice(self.game.legal_actions())
 
                     if render:
