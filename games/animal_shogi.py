@@ -59,7 +59,7 @@ class MuZeroConfig:
         self.num_workers = 5  # Number of simultaneous threads/workers self-playing to feed the replay buffer
         self.selfplay_on_gpu = False
         self.max_moves = 100  # Maximum number of moves if game is not finished before
-        self.num_simulations = 30  # Number of future moves self-simulated
+        self.num_simulations = 80  # Number of future moves self-simulated
         self.discount = 1  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
 
@@ -138,7 +138,7 @@ class MuZeroConfig:
 
     @property
     def random_move_till_n_action_in_self_play(self):
-        return numpy.random.choice([0, 2, 2, 4, 4, 4, 4, 4, 4, 4, 6])
+        return numpy.random.choice([0, 0, 2, 2, 2, 2, 4])
 
     def visit_softmax_temperature_fn(self, trained_steps):
         """
@@ -151,10 +151,10 @@ class MuZeroConfig:
         if trained_steps < self.training_steps * 0.5:
             return 1
         else:
-            return 0.5
+            return 0.75
 
-    def num_simulations_fn(self, num_played_games):
-        rate = num_played_games / (self.replay_buffer_size * 10)
+    def num_simulations_fn(self, training_step):
+        rate = training_step / (self.training_steps * 0.2)
         n = numpy.clip(self.num_simulations * rate, 20, self.num_simulations)
         return int(n)
 

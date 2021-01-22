@@ -38,8 +38,8 @@ class SelfPlay:
 
             if not test_mode:
                 if hasattr(self.config, "num_simulations_fn"):
-                    num_played_games = ray.get(shared_storage.get_info.remote("num_played_games"))
-                    num_simulations = self.config.num_simulations_fn(num_played_games)
+                    training_step = ray.get(shared_storage.get_info.remote("training_step"))
+                    num_simulations = self.config.num_simulations_fn(training_step)
                 else:
                     num_simulations = None
                 game_history = self.play_game(
